@@ -95,6 +95,7 @@ type pattern struct {
 const (
 	read = 1 << iota
 	write
+	addr
 
 	rw = read | write
 )
@@ -104,7 +105,7 @@ var patterns = []pattern{
 	{"^(386|AMD64):MOV([BWLQO]|S[SD])store(idx[1248])?$", write},
 	{"^(386|AMD64):MOV[BWL][LQ]SXload$", read},
 	{"^(386|AMD64):MOV[BWLQ]storeconst(idx[1248])?$", write},
-	{"^(386|AMD64):LEA[LQ][1248]?$", read},
+	{"^(386|AMD64):LEA[LQ][1248]?$", addr},
 
 	{"^AMD64:(ADD|SUB|MUL|AND|OR|XOR)([BWLQ]|S[SD])mem$", read},
 	{"^AMD64:(XADD|CMPXCHG|AND|OR)[BWLQ]lock$", rw},
@@ -112,12 +113,12 @@ var patterns = []pattern{
 	{"^AMD64:MOV[LQ]atomicload$", read},
 
 	{"^(ARM|MIPS|PPC)(64)?:MOV[BHWDFV][UZ]?load$", read},
-	{"^(ARM|MIPS|PPC)(64)?:MOV[BHWDFV]addr", read},
-	{"^(ARM|MIPS|PPC)(64)?:MOV[BHWDFV]store", write},
+	{"^(ARM|MIPS|PPC)(64)?:MOV[BHWDFV]addr$", addr},
+	{"^(ARM|MIPS|PPC)(64)?:MOV[BHWDFV]store(zero)?$", write},
 	{"^(ARM|MIPS|PPC)(64)?:FMOV[SD]load$", read},
-	{"^(ARM|MIPS|PPC)(64)?:FMOV[SD]store", write},
+	{"^(ARM|MIPS|PPC)(64)?:FMOV[SD]store$", write},
 
-	{"^PPC64:ADDconst$", read}, // ???
+	{"^PPC64:ADDconst$", addr},
 
 	{"^S390X:(ADD|SUB|MULL|AND|OR|XOR)[DW]?load$", read},
 	{"^S390X:MOV[BHWD](BR|Z)?(atomic)?load(idx)?$", read},
@@ -127,7 +128,7 @@ var patterns = []pattern{
 	{"^S390X:MOVDaddr(idx)?$", read},
 	{"^S390X:CLEAR$", write},
 	{"^S390X:LAAG?$", rw},
-	{"^S390X:MVC$", rw}, // ???
+	{"^S390X:MVC$", 0}, // doesn't actually use Aux
 	{"^S390X:STMG?[234]$", write},
 	{"^S390X:LoweredAtomic(Cas|Exchange)(32|64)$", rw},
 
@@ -174,7 +175,7 @@ func symop(pkg *loader.PackageInfo, arch string, lit *ast.CompositeLit, edits *[
 			}
 
 			var text string
-			if pattern.effect&read != 0 {
+			if pattern.effect&(read|addr) != 0 {
 				text += sep + "symRead: true"
 			}
 			if pattern.effect&write != 0 {
