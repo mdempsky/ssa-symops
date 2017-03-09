@@ -89,15 +89,17 @@ type edit struct {
 
 type pattern struct {
 	rx     string
-	effect int
+	effect effect
 }
 
-const (
-	read = 1 << iota
-	write
-	addr
+type effect string
 
-	rw = read | write
+const (
+	read effect = "Read"
+	write effect = "Write"
+	rw effect = "Rdwr"
+	addr effect = "Addr"
+	none effect = ""
 )
 
 var patterns = []pattern{
@@ -128,15 +130,15 @@ var patterns = []pattern{
 	{"^S390X:MOVDaddr(idx)?$", read},
 	{"^S390X:CLEAR$", write},
 	{"^S390X:LAAG?$", rw},
-	{"^S390X:MVC$", 0}, // doesn't actually use Aux
+	{"^S390X:MVC$", none}, // doesn't actually use Aux
 	{"^S390X:STMG?[234]$", write},
 	{"^S390X:LoweredAtomic(Cas|Exchange)(32|64)$", rw},
 
-	{"^generic:Arg$", 0},
+	{"^generic:Arg$", none},
 	// Apologies to von Neumann, but Go acts like a
 	// Harvard architecture.
-	{"^generic:StaticCall$", 0},
-	{"^.*:CALLstatic$", 0},
+	{"^generic:StaticCall$", none},
+	{"^.*:CALLstatic$", none},
 }
 
 func symop(pkg *loader.PackageInfo, arch string, lit *ast.CompositeLit, edits *[]edit) {
@@ -174,14 +176,8 @@ func symop(pkg *loader.PackageInfo, arch string, lit *ast.CompositeLit, edits *[
 				sep = ",\n"
 			}
 
-			var text string
-			if pattern.effect&(read|addr) != 0 {
-				text += sep + "symRead: true"
-			}
-			if pattern.effect&write != 0 {
-				text += sep + "symWrite: true"
-			}
-			if pattern.effect != 0 {
+			if pattern.effect != none {
+				text := sep + fmt.Sprintf("symEffect: %q", pattern.effect)
 				*edits = append(*edits, edit{fset.Position(pos).Offset, text})
 			}
 			return
