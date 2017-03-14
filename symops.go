@@ -95,7 +95,7 @@ type effect string
 const (
 	read  effect = "Read"
 	write effect = "Write"
-	rw    effect = "Rdwr"
+	rw    effect = "RdWr"
 	addr  effect = "Addr"
 	none  effect = "None"
 )
