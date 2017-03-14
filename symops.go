@@ -93,11 +93,11 @@ type pattern struct {
 type effect string
 
 const (
-	read effect = "Read"
+	read  effect = "Read"
 	write effect = "Write"
-	rw effect = "Rdwr"
-	addr effect = "Addr"
-	none effect = ""
+	rw    effect = "Rdwr"
+	addr  effect = "Addr"
+	none  effect = "None"
 )
 
 var patterns = []pattern{
@@ -117,6 +117,7 @@ var patterns = []pattern{
 	{"^(ARM|MIPS|PPC)(64)?:MOV[BHWDFV]store(zero)?$", write},
 	{"^(ARM|MIPS|PPC)(64)?:FMOV[SD]load$", read},
 	{"^(ARM|MIPS|PPC)(64)?:FMOV[SD]store$", write},
+	{"^ARM:CALLudiv$", none},
 
 	{"^PPC64:ADDconst$", addr},
 
@@ -133,6 +134,12 @@ var patterns = []pattern{
 	{"^S390X:LoweredAtomic(Cas|Exchange)(32|64)$", rw},
 
 	{"^generic:Arg$", none},
+	{"^generic:Addr$", addr},
+	{"^generic:Func$", none},
+	{"^generic:(Move|Zero)WB$", none}, // sym is the type symbol used for typedmemmove
+	{"^generic:FwdRef$", none},
+	{"^generic:Var(Def|Kill|Live)$", none}, // specially handled by plive anyway
+
 	// Apologies to von Neumann, but Go acts like a
 	// Harvard architecture.
 	{"^generic:StaticCall$", none},
@@ -159,7 +166,7 @@ func symop(pkg *loader.PackageInfo, arch string, lit *ast.CompositeLit, edits *[
 			aux = constant.StringVal(pkg.Types[elt.Value].Value)
 		}
 	}
-	if aux != "SymOff" && aux != "SymValAndOff" {
+	if !strings.HasPrefix(aux, "Sym") {
 		return
 	}
 
@@ -174,10 +181,8 @@ func symop(pkg *loader.PackageInfo, arch string, lit *ast.CompositeLit, edits *[
 				sep = ",\n"
 			}
 
-			if pattern.effect != none {
-				text := sep + fmt.Sprintf("symEffect: %q", pattern.effect)
-				*edits = append(*edits, edit{fset.Position(pos).Offset, text})
-			}
+			text := sep + fmt.Sprintf("symEffect: %q", pattern.effect)
+			*edits = append(*edits, edit{fset.Position(pos).Offset, text})
 			return
 		}
 	}
